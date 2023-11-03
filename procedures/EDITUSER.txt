@@ -1,0 +1,19 @@
+create or replace PROCEDURE EDITUSER 
+(
+
+  c_ID in number
+, NEWNAME in VARCHAR2
+, NEWPHONE in VARCHAR2 
+, NEWEMAIL in VARCHAR2
+, NEWUSERNAME in VARCHAR2
+
+) AS 
+BEGIN
+    UPDATE Customers 
+    SET 
+    fullname = NEWNAME,
+    phone = NEWPHONE,
+    email = NEWEMAIL,
+    username = NEWUSERNAME
+    where Customers.CID = c_ID;
+END EDITUSER;

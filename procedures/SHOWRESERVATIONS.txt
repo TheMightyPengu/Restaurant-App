@@ -1,0 +1,9 @@
+create or replace PROCEDURE SHOWRESERVATIONS 
+(
+  AllTables OUT SYS_REFCURSOR
+) AS 
+BEGIN
+    OPEN AllTables FOR
+                    SELECT r.DAY, r.TID, c.fullname, c.phone
+                    FROM reservations r JOIN customers c ON r.cid = c.cid;
+END SHOWRESERVATIONS;

@@ -1,0 +1,19 @@
+create or replace PROCEDURE EDITSTAFF 
+(
+
+  s_ID in number
+, NEWNAME in VARCHAR2
+, NEWPHONE in VARCHAR2 
+, NEWEMAIL in VARCHAR2
+, NEWUSERNAME in VARCHAR2
+
+) AS 
+BEGIN
+    UPDATE Staff 
+    SET 
+    fullname = NEWNAME,
+    phone = NEWPHONE,
+    email = NEWEMAIL,
+    username = NEWUSERNAME
+    where Staff.SID = s_ID;
+END EDITSTAFF;

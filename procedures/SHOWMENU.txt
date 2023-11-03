@@ -1,0 +1,9 @@
+create or replace PROCEDURE ShowMenu(
+Menu OUT SYS_REFCURSOR
+)AS
+BEGIN
+
+ OPEN Menu FOR
+              SELECT name, description, price
+              FROM dishes;              
+END ShowMenu;

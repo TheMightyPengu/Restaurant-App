@@ -1,0 +1,12 @@
+create or replace PROCEDURE StaffHistory(
+StaffID IN staff.sid%type,
+ArithmosParagkelion OUT SYS_REFCURSOR
+)AS
+BEGIN
+
+OPEN ArithmosParagkelion FOR
+                            SELECT s.fullname, o.tid, count(tid)
+                            FROM orders o JOIN staff s ON o.sid = s.sid
+                            WHERE o.sid = StaffID
+                            GROUP BY s.fullname, o.tid ;
+END StaffHistory;

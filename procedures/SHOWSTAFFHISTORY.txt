@@ -1,0 +1,9 @@
+create or replace PROCEDURE SHOWSTAFFHISTORY(
+    ArithmosParagkelion OUT SYS_REFCURSOR
+) AS 
+BEGIN
+  OPEN ArithmosParagkelion FOR
+                            SELECT s.fullname, o.tid, count(tid)
+                            FROM orders o JOIN staff s ON o.sid = s.sid
+                            GROUP BY s.fullname, o.tid;
+END SHOWSTAFFHISTORY;

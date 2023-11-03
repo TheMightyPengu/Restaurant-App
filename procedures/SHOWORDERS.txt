@@ -1,0 +1,8 @@
+create or replace PROCEDURE SHOWORDERS(
+Leptomeries OUT SYS_REFCURSOR
+)AS 
+BEGIN
+  OPEN Leptomeries FOR
+                    SELECT o.tid, d.name, d.price, s.fullname 
+                    FROM (dishes d JOIN orders o ON d.did = o.did) JOIN staff s ON o.sid = s.sid;
+END SHOWORDERS;

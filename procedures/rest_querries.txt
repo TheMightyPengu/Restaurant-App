@@ -1,0 +1,285 @@
+*ta diathesima trapezia tin sigkekrimeni mera
+            
+create or replace PROCEDURE AvailableTables(
+DiathesimaTrapezia OUT SYS_REFCURSOR
+)AS
+BEGIN
+
+OPEN DiathesimaTrapezia FOR
+                           SELECT distinct tabless.Tid, Vip, capacity
+                           FROM tabless
+                           WHERE (available = 'Y') UNION 
+                                                        SELECT distinct tabless.Tid, Vip, capacity
+                                                        FROM tabless LEFT JOIN reservations ON tabless.rid = reservations.rid
+                                                        WHERE TO_CHAR(reservations.day) != TO_CHAR(CURRENT_DATE);              
+END AvailableTables;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*Emfanizi ta details enos piatou
+
+create or replace PROCEDURE DishDetails(
+Piato IN dishes.name%type,
+Leptomeries OUT SYS_REFCURSOR
+)AS
+BEGIN
+
+ OPEN Leptomeries FOR
+                    SELECT *
+                    FROM dishes 
+                    WHERE dishes.name = Piato;               
+END DishDetails;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*Emfanizi ta details mias paragkelias
+
+create or replace PROCEDURE OrderDetails(
+Paragkelia IN orders.Oid%type,
+Leptomeries OUT SYS_REFCURSOR
+)AS
+BEGIN
+
+ OPEN Leptomeries FOR
+                    SELECT  t.tid, d.name, d.price, o.sid
+                    FROM dishes d JOIN orders o ON d.did = o.did JOIN tabless t ON t.tid=o.tid
+                    WHERE o.oid = Paragkelia;               
+END OrderDetails;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*emfanizi ton arithmon ton paragkelion tou porosopikou
+
+create or replace PROCEDURE StaffHistory(
+StaffID IN staff.sid%type,
+ArithmosParagkelion OUT SYS_REFCURSOR
+)AS
+BEGIN
+
+OPEN ArithmosParagkelion FOR
+                            SELECT s.fullname, o.tid, count(tid)
+                            FROM orders o JOIN staff s ON o.sid = s.sid
+                            WHERE o.sid = StaffID
+                            GROUP BY s.fullname, o.tid ;
+END StaffHistory;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*dialegi ta piata kato apo X poso
+
+create or replace PROCEDURE PRICEFILTER(
+Kostos IN dishes.price%type, 
+Onomapiatou OUT SYS_REFCURSOR
+)AS
+
+BEGIN
+ OPEN Onomapiatou FOR
+                    SELECT dishes.name, cost
+                    FROM dishes
+                    WHERE price <= Kostos;
+END PRICEFILTER;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*bazi to onoma tou pelati kai na tou emfanizi ta stixia tou
+
+create or replace FUNCTION FINDCUSTOMERDETAILS(
+    CustomerName IN customers.fullname%type,
+    CustomerID IN customers.Cid%type,
+    CustomerDetails OUT SYS_REFCURSOR
+)
+RETURN SYS_REFCURSOR
+AS
+BEGIN
+
+    OPEN CustomerDetails FOR
+                            SELECT c.cid, c.fullname, c.phone, c.email, r.day, r.tid, r.rid
+                            FROM customers c JOIN reservations r ON c.cid = r.cid
+                            WHERE c.fullname = CustomerName OR c.cid = CustomerID;
+RETURN CustomerDetails;
+END FINDCUSTOMERDETAILS;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*bazis tin imerominia tis kratisis kai na sou emfanizi ta stixia tis
+
+create or replace PROCEDURE FindReservationsByDate(
+ReservationDate IN varchar2,
+ReservationDetails OUT SYS_REFCURSOR
+)AS 
+BEGIN
+  OPEN ReservationDetails FOR
+                            SELECT *  
+                            FROM reservations
+                            WHERE reservations.day = TO_DATE(ReservationDate,'yyyy-mm-dd');
+END FindReservationsByDate;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+*alazi ton pinaka tables me ta dedomena tou reservations
+
+create or replace TRIGGER FillTableFromReservations
+AFTER INSERT ON Reservations
+REFERENCING OLD AS OLD NEW AS NEW
+FOR EACH ROW
+DECLARE
+RidRT reservations.rid%type;
+TidRT reservations.tid%type;
+BEGIN
+    RidRT := :NEW.rid;
+    TidRT := :NEW.tid;
+    
+    UPDATE Tabless SET 
+        available = 'N',
+        rid = RidRT
+    WHERE Tid = TidRT;
+END;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+************************LOGFILES*************************
+
+
+create or replace TRIGGER CustomersLogFile
+AFTER INSERT OR DELETE OR UPDATE ON Customers
+REFERENCING OLD AS OLD NEW AS NEW
+FOR EACH ROW
+BEGIN
+    if inserting then
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (null, :NEW.Cid, :NEW.Fullname ,'Insert', sysdate, 'Customers');
+            
+    elsif deleting then
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (null, :OLD.Cid, :OLD.Fullname ,'Delete', sysdate, 'Customers');
+            
+    elsif updating then
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (null, :NEW.Cid, :NEW.Fullname ,'Update', sysdate, 'Customers');
+     end if;
+END;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+create or replace TRIGGER StaffLogFile
+AFTER INSERT OR DELETE OR UPDATE ON Staff
+REFERENCING OLD AS OLD NEW AS NEW
+FOR EACH ROW
+BEGIN
+    if inserting then
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (:NEW.Sid, null, :NEW.Fullname ,'Insert', sysdate, 'Staff');
+
+    elsif deleting then
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (:OLD.Sid, null, :OLD.Fullname ,'Delete', sysdate, 'Staff');
+
+    elsif updating then
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (:NEW.Sid, null, :NEW.Fullname ,'Update', sysdate, 'Staff');
+     end if;
+END;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+create or replace TRIGGER ReservationsLogFile
+AFTER INSERT OR DELETE OR UPDATE ON Reservations
+REFERENCING OLD AS OLD NEW AS NEW
+FOR EACH ROW
+DECLARE
+CustomerName varchar2(40);
+BEGIN
+    if inserting then
+            SELECT customers.fullname INTO CustomerName FROM Customers WHERE Cid = :NEW.cid;
+
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (null, :OLD.Cid, CustomerName, 'Insert', sysdate, 'Reservations');
+
+
+    elsif deleting then
+        SELECT customers.fullname INTO CustomerName FROM Customers WHERE Cid = :OLD.cid;
+
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (null, :OLD.Cid, CustomerName, 'Delete', sysdate, 'Reservations');
+
+
+    elsif updating then
+        SELECT customers.fullname INTO CustomerName FROM Customers WHERE Cid = :NEW.cid;
+
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (null, :OLD.Cid, CustomerName, 'Update', sysdate, 'Reservations');
+    end if;
+END;
+
+
+----------------------------------------------------------------------------------------------------------------------------
+
+create or replace TRIGGER OrdersLogFile
+AFTER INSERT OR DELETE OR UPDATE ON Orders
+REFERENCING OLD AS OLD NEW AS NEW
+FOR EACH ROW
+DECLARE
+StaffName varchar2(40);
+BEGIN
+    if inserting then
+        SELECT staff.fullname INTO StaffName FROM staff WHERE sid = :NEW.sid;
+    
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (:OLD.sid, null, StaffName, 'Insert', sysdate, 'Orders');
+
+
+    elsif deleting then
+        SELECT staff.fullname INTO StaffName FROM staff WHERE sid = :OLD.sid;
+    
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (:OLD.sid, null, StaffName, 'Delete', sysdate, 'Orders');
+
+
+    elsif updating then
+        SELECT staff.fullname INTO StaffName FROM staff WHERE sid = :NEW.sid;
+    
+        INSERT INTO LogFile
+            (staffID, customerID, fullname, action, moment, tablename)
+        VALUES
+            (:OLD.sid, null, StaffName, 'Update', sysdate, 'Orders');
+    end if;
+END;

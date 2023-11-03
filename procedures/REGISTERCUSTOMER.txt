@@ -1,0 +1,13 @@
+create or replace PROCEDURE REGISTERCUSTOMER( 
+NewFullname in customers.fullname%type,
+NewPhone in customers.phone%type,
+NewEmail in customers.email%type,
+NewUsername in customers.username%type,
+NewPassword in customers.password%type
+)AS 
+BEGIN
+    INSERT INTO customers
+        (fullname, phone, email, username, password) 
+    VALUES
+        (NewFullname, NewPhone, NewEmail, NewUsername, NewPassword);
+END REGISTERCUSTOMER;
